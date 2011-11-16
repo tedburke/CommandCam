@@ -1,6 +1,6 @@
 //
 // CommandCam.cpp - A command line image grabber
-// Written by Ted Burke - last modified 15-11-2011
+// Written by Ted Burke - last modified 16-11-2011
 //
 // Website: http://batchloaf.wordpress.com
 //
@@ -86,8 +86,8 @@ int main(int argc, char **argv)
 		preview_window = 1;
 	
 	// Information message
-	fprintf(stderr, "CommandCom.exe - http://batchloaf.wordpress.com\n");
-	fprintf(stderr, "Written by Ted Burke - this version 15-11-2011\n\n");
+	fprintf(stderr, "CommandCam.exe - http://batchloaf.wordpress.com\n");
+	fprintf(stderr, "Written by Ted Burke - this version 16-11-2011\n\n");
 	
 	// Intialise COM
 	hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
