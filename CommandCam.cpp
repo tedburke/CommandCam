@@ -45,6 +45,7 @@ IBaseFilter *pSampleGrabberFilter = NULL;
 DexterLib::ISampleGrabber *pSampleGrabber = NULL;
 IBaseFilter *pNullRenderer = NULL;
 IMediaControl *pMediaControl = NULL;
+char *pBuffer = NULL;
 
 void exit_message(const char* error_message, int error)
 {
@@ -53,6 +54,7 @@ void exit_message(const char* error_message, int error)
 	fprintf(stderr, "\n");
 	
 	// Clean up DirectShow / COM stuff
+	if (pBuffer != NULL) delete[] pBuffer;
 	if (pMediaControl != NULL) pMediaControl->Release();	
 	if (pNullRenderer != NULL) pNullRenderer->Release();
 	if (pSampleGrabber != NULL) pSampleGrabber->Release();
@@ -75,19 +77,19 @@ int main(int argc, char **argv)
 {
 	// Capture settings
 	char filename[100];
-	int capture_duration = 1000;
+	int snapshot_delay = 2000;
 	int preview_window = 0;
 
 	// Parse command line arguments
 	if (argc > 1) strcpy(filename, argv[1]);
 	else strcpy(filename, "image.bmp");
-	if (argc > 2) capture_duration = atoi(argv[2]);
+	if (argc > 2) snapshot_delay = atoi(argv[2]);
 	if (argc > 3 && strcmp(argv[3], "preview") == 0)
 		preview_window = 1;
-	
+		
 	// Information message
 	fprintf(stderr, "CommandCam.exe - http://batchloaf.wordpress.com\n");
-	fprintf(stderr, "Written by Ted Burke - this version 16-11-2011\n\n");
+	fprintf(stderr, "Written by Ted Burke - this version 17-11-2011\n\n");
 	
 	// Intialise COM
 	hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
@@ -142,7 +144,8 @@ int main(int argc, char **argv)
 	hr = pMoniker->BindToObject(0, 0,
 					IID_IBaseFilter, (void**)&pCap);
 	if (hr != S_OK) exit_message("Could not create capture filter", 1);
-	
+		
+	// Add capture filter to graph
 	hr = pGraph->AddFilter(pCap, L"Capture Filter");
 	if (hr != S_OK) exit_message("Could not add capture filter to graph", 1);
 
@@ -153,11 +156,6 @@ int main(int argc, char **argv)
 	if (hr != S_OK)
 		exit_message("Could not create Sample Grabber filter", 1);
 	
-	// Add sample grabber filter to filter graph
-	hr = pGraph->AddFilter(pSampleGrabberFilter, L"SampleGrab");
-	if (hr != S_OK)
-		exit_message("Could not add Sample Grabber to filter graph", 1);
-
 	// Query the ISampleGrabber interface of the sample grabber filter
 	hr = pSampleGrabberFilter->QueryInterface(
 			DexterLib::IID_ISampleGrabber, (void**)&pSampleGrabber);
@@ -178,6 +176,11 @@ int main(int argc, char **argv)
 	if (hr != S_OK)
 		exit_message("Could not set media type in sample grabber", 1);
 	
+	// Add sample grabber filter to filter graph
+	hr = pGraph->AddFilter(pSampleGrabberFilter, L"SampleGrab");
+	if (hr != S_OK)
+		exit_message("Could not add Sample Grabber to filter graph", 1);
+
 	// Create Null Renderer filter
 	hr = CoCreateInstance(CLSID_NullRenderer, NULL,
 		CLSCTX_INPROC_SERVER, IID_IBaseFilter,
@@ -210,85 +213,108 @@ int main(int argc, char **argv)
 	// Get media control interfaces to graph builder object
 	hr = pGraph->QueryInterface(IID_IMediaControl,
 					(void**)&pMediaControl);
-	if (hr != S_OK) exit_message("Could not media control interface", 1);
+	if (hr != S_OK) exit_message("Could not get media control interface", 1);
 	
 	// Run graph
-	pMediaControl->Run();
-	Sleep(capture_duration);
+	while(1)
+	{
+		hr = pMediaControl->Run();
+		
+		// Hopefully, the return value was S_OK or S_FALSE
+		if (hr == S_OK) break; // graph is now running
+		if (hr == S_FALSE) continue; // graph still preparing to run
+		
+		// If the Run function returned something else,
+		// there must be a problem
+		fprintf(stderr, "Error: %u\n", hr);
+		exit_message("Could not run filter graph", 1);
+	}
+	
+	// Wait for specified time delay (if any)
+	Sleep(snapshot_delay);
 	
 	// Grab a sample
 	// First, find the required buffer size
 	long buffer_size = 0;
-	hr = pSampleGrabber->GetCurrentBuffer(&buffer_size, NULL);
-	if (hr != S_OK && hr != E_POINTER)
-		exit_message("Could not get buffer size", 1);
-	
-	char *pBuffer = new char[buffer_size];
+	while(1)
+	{
+		// Passing in a NULL pointer signals that we're just checking
+		// the required buffer size; not looking for actual data yet.
+		hr = pSampleGrabber->GetCurrentBuffer(&buffer_size, NULL);
+		
+		// Keep trying until buffer_size is set to non-zero value.
+		if (hr == S_OK && buffer_size != 0) break;
+		
+		// If the return value isn't S_OK or VFW_E_WRONG_STATE
+		// then something has gone wrong. VFW_E_WRONG_STATE just
+		// means that the filter graph is still starting up and
+		// no data has arrived yet in the sample grabber filter.
+		if (hr != S_OK && hr != VFW_E_WRONG_STATE)
+			exit_message("Could not get buffer size", 1);
+	}
+
+	// Stop the graph
+	pMediaControl->Stop();
+
+	// Allocate buffer for image
+	pBuffer = new char[buffer_size];
 	if (!pBuffer)
 		exit_message("Could not allocate data buffer for image", 1);
 	
+	// Retrieve image data from sample grabber buffer
 	hr = pSampleGrabber->GetCurrentBuffer(
 			&buffer_size, (long*)pBuffer);
 	if (hr != S_OK)
 		exit_message("Could not get buffer data from sample grabber", 1);
 
+	// Get the media type from the sample grabber filter
 	hr = pSampleGrabber->GetConnectedMediaType(
 			(DexterLib::_AMMediaType *)&mt);
 	if (hr != S_OK) exit_message("Could not get media type", 1);
 	
 	// Retrieve format information
-	VIDEOINFOHEADER *pVih;
+	VIDEOINFOHEADER *pVih = NULL;
 	if ((mt.formattype == FORMAT_VideoInfo) && 
 		(mt.cbFormat >= sizeof(VIDEOINFOHEADER)) &&
 		(mt.pbFormat != NULL)) 
 	{
+		// Get video info header structure from media type
 		pVih = (VIDEOINFOHEADER*)mt.pbFormat;
+
+		// Print the resolution of the captured image
+		fprintf(stderr, "Capture resolution: %dx%d\n",
+			pVih->bmiHeader.biWidth,
+			pVih->bmiHeader.biHeight);
+		
+		// Create bitmap structure
+		long cbBitmapInfoSize = mt.cbFormat - SIZE_PREHEADER;
+		BITMAPFILEHEADER bfh;
+		ZeroMemory(&bfh, sizeof(bfh));
+		bfh.bfType = 'MB'; // Little-endian for "BM".
+		bfh.bfSize = sizeof(bfh) + buffer_size + cbBitmapInfoSize;
+		bfh.bfOffBits = sizeof(BITMAPFILEHEADER) + cbBitmapInfoSize;
+		
+		// Open output file
+		HANDLE hf = CreateFile(filename, GENERIC_WRITE,
+					FILE_SHARE_WRITE, NULL, CREATE_ALWAYS, 0, NULL);
+		if (hf == INVALID_HANDLE_VALUE)
+			exit_message("Error opening output file", 1);
+		
+		// Write the file header.
+		DWORD dwWritten = 0;
+		WriteFile(hf, &bfh, sizeof(bfh), &dwWritten, NULL);
+		WriteFile(hf, HEADER(pVih),
+					cbBitmapInfoSize, &dwWritten, NULL);
+		
+		// Write pixel data to file
+		WriteFile(hf, pBuffer, buffer_size, &dwWritten, NULL);
+		CloseHandle(hf);
 	}
 	else 
 	{
-		// Free format block
-		if (mt.cbFormat != 0)
-		{
-			CoTaskMemFree((PVOID)mt.pbFormat);
-			mt.cbFormat = 0;
-			mt.pbFormat = NULL;
-		}
-		
-		if (mt.pUnk != NULL)
-		{
-			// pUnk should not be used.
-			mt.pUnk->Release();
-			mt.pUnk = NULL;
-		}
-
-		exit_message("Wrong format", 1);
+		exit_message("Wrong media type", 1);
 	}
 	
-	// Open output file
-	HANDLE hf = CreateFile(filename, GENERIC_WRITE,
-				FILE_SHARE_WRITE, NULL, CREATE_ALWAYS, 0, NULL);
-	if (hf == INVALID_HANDLE_VALUE)
-		exit_message("Error opening output file", 1);
-	
-	// Create bitmap structure
-	long cbBitmapInfoSize = mt.cbFormat - SIZE_PREHEADER;
-	VIDEOINFOHEADER *pVideoHeader = (VIDEOINFOHEADER*)mt.pbFormat;
-	BITMAPFILEHEADER bfh;
-	ZeroMemory(&bfh, sizeof(bfh));
-	bfh.bfType = 'MB'; // Little-endian for "BM".
-	bfh.bfSize = sizeof(bfh) + buffer_size + cbBitmapInfoSize;
-	bfh.bfOffBits = sizeof(BITMAPFILEHEADER) + cbBitmapInfoSize;
-	
-	// Write the file header.
-	DWORD dwWritten = 0;
-	WriteFile(hf, &bfh, sizeof( bfh ), &dwWritten, NULL);
-	WriteFile(hf, HEADER(pVideoHeader),
-				cbBitmapInfoSize, &dwWritten, NULL);
-	
-	// Write pixel data to file
-	WriteFile(hf, pBuffer, buffer_size, &dwWritten, NULL);
-	CloseHandle(hf);
-
 	// Free the format block
 	if (mt.cbFormat != 0)
 	{
@@ -302,9 +328,6 @@ int main(int argc, char **argv)
 		mt.pUnk->Release();
 		mt.pUnk = NULL;
 	}
-
-	// Stop the graph
-	pMediaControl->Stop();
 
 	// Clean up and exit
 	exit_message("Capture complete", 0);
