@@ -12,12 +12,12 @@
 // DirectShow header file
 #include <dshow.h>
 
-// This is a nasty workaround for the missing header
+// This is a workaround for the missing header
 // file qedit.h which seems to be absent from the
 // Windows SDK versions 7.0 and 7.1.
-// To use the items defined in this dll, I had to
-// refer to them explicitly as belonging to the
-// DexterLib namespace. The items in question are:
+// To use the items defined in this dll, the
+// DexterLib namespace must be specified.
+// The items in question are:
 //
 //		DexterLib::_AMMediaType
 //		DexterLib::ISampleGrabber
