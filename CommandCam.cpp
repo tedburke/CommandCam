@@ -2,7 +2,7 @@
 // CommandCam.cpp - A command line image grabber
 // Written by Ted Burke - last modified 20-11-2011
 //
-// Copyright 2011 Ted Burke, All rights reserved.
+// Copyright Ted Burke, 2011, All rights reserved.
 //
 // Website: http://batchloaf.wordpress.com
 //
@@ -89,7 +89,8 @@ int main(int argc, char **argv)
 	
 	// Information message
 	fprintf(stderr, "\nCommandCam.exe - http://batchloaf.wordpress.com\n");
-	fprintf(stderr, "Written by Ted Burke - this version 20-11-2011\n\n");
+	fprintf(stderr, "Written by Ted Burke - this version 20-11-2011\n");
+	fprintf(stderr, "Copyright Ted Burke, 2011, All rights reserved.\n\n");
 	
 	// Parse command line arguments. Available options:
 	//
