@@ -82,9 +82,14 @@ int main(int argc, char **argv)
 	int show_preview_window = 0;
 	int list_devices = 0;
 	int device_number = 1;
+	char device_name[100];
 	char filename[100];
+	
+	// Other variables
+	char char_buffer[100];
 
-	// Default output filename
+	// Default device name and output filename
+	strcpy(device_name, "");
 	strcpy(filename, "image.bmp");
 	
 	// Information message
@@ -97,6 +102,7 @@ int main(int argc, char **argv)
 	//		/delay DELAY_IN_MILLISECONDS
 	//		/filename OUTPUT_FILENAME
 	//		/devnum DEVICE_NUMBER
+	//		/devname DEVICE_NAME
 	//		/preview
 	//		/devlist
 	//
@@ -140,6 +146,31 @@ int main(int argc, char **argv)
 			
 			if (device_number <= 0)
 				exit_message("Error: invalid device number", 1);
+		}
+		else if (strcmp(argv[n], "/devname") == 0)
+		{
+			// Set device number to specified value
+			n++;
+			if (n < argc)
+			{
+				// Copy device name into char buffer
+				strcpy(char_buffer, argv[n]);
+				
+				// Trim inverted commas if present and copy
+				// provided string into device_name
+				if (char_buffer[0] == '"')
+				{
+					strncat(device_name, char_buffer, strlen(char_buffer)-2);
+				}
+				else
+				{
+					strcpy(device_name, char_buffer);
+				}
+				
+				// Remember to choose by name rather than number
+				device_number = 0;
+			}
+			else exit_message("Error: invalid device name", 1);
 		}
 		else
 		{
@@ -223,8 +254,9 @@ int main(int argc, char **argv)
 	// Get moniker for specified video input device,
 	// or for the first device if no device number
 	// was specified.
+	VARIANT var;
 	n = 0;
-	while(n < device_number)
+	while(1)
 	{
 		// Access next device
 		hr = pEnum->Next(1, &pMoniker, NULL);
@@ -234,16 +266,51 @@ int main(int argc, char **argv)
 		}
 		else
 		{
-			fprintf(stderr,
-				"Video capture device %d not found\n",
-				device_number);		
-			exit_message("", 1);		
+			if (device_number == 0)
+			{
+				fprintf(stderr,
+					"Video capture device %s not found\n",
+					device_name);
+			}
+			else
+			{
+				fprintf(stderr,
+					"Video capture device %d not found\n",
+					device_number);
+			}
+			exit_message("", 1);
 		}
+		
+		// If device was specified by name rather than number...
+		if (device_number == 0)
+		{
+			// Get video input device name
+			hr = pMoniker->BindToStorage(0, 0, IID_PPV_ARGS(&pPropBag));
+			if (hr == S_OK)
+			{
+				// Get current device name
+				VariantInit(&var);
+				hr = pPropBag->Read(L"FriendlyName", &var, 0);
+				
+				// Convert to a normal C string, i.e. char*
+				sprintf(char_buffer, "%ls", var.bstrVal);
+				VariantClear(&var);
+				pPropBag->Release();
+				pPropBag = NULL;
+				
+				// Exit loop if current device name matched devname
+				if (strcmp(device_name, char_buffer) == 0) break;
+			}
+			else
+			{
+				exit_message("Error getting device names", 1);
+			}
+		}
+		else if (n >= device_number) break;
 	}
 	
 	// Get video input device name
 	hr = pMoniker->BindToStorage(0, 0, IID_PPV_ARGS(&pPropBag));
-	VARIANT var;
 	VariantInit(&var);
 	hr = pPropBag->Read(L"FriendlyName", &var, 0);
 	fprintf(stderr, "Capture device: %ls\n", var.bstrVal);
