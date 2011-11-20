@@ -2,6 +2,8 @@
 // CommandCam.cpp - A command line image grabber
 // Written by Ted Burke - last modified 20-11-2011
 //
+// Copyright 2011 Ted Burke, All rights reserved.
+//
 // Website: http://batchloaf.wordpress.com
 //
 // To compile using the MSVC++ compiler:
