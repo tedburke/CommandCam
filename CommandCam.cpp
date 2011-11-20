@@ -439,5 +439,6 @@ int main(int argc, char **argv)
 	}
 
 	// Clean up and exit
-	exit_message("Capture complete", 0);
+	fprintf(stderr, "Captured image to %s", filename);
+	exit_message("", 0);
 }
