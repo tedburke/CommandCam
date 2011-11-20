@@ -124,7 +124,22 @@ int main(int argc, char **argv)
 		{
 			// Set output filename to specified string
 			n++;
-			if (n < argc) strcpy(filename, argv[n]);
+			if (n < argc) //strcpy(filename, argv[n]);
+			{
+				// Copy provided string into char buffer
+				strcpy(char_buffer, argv[n]);
+				
+				// Trim inverted commas if present and copy
+				// provided string into filename char array
+				if (char_buffer[0] == '"')
+				{
+					strncat(filename, char_buffer, strlen(char_buffer)-2);
+				}
+				else
+				{
+					strcpy(filename, char_buffer);
+				}
+			}
 			else exit_message("Error: no filename specified", 1);
 		}
 		else if (strcmp(argv[n], "/delay") == 0)
