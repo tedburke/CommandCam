@@ -1,6 +1,6 @@
 //
 // CommandCam.cpp - A command line image grabber
-// Written by Ted Burke - last modified 16-11-2011
+// Written by Ted Burke - last modified 20-11-2011
 //
 // Website: http://batchloaf.wordpress.com
 //
@@ -76,20 +76,78 @@ void exit_message(const char* error_message, int error)
 int main(int argc, char **argv)
 {
 	// Capture settings
-	char filename[100];
 	int snapshot_delay = 2000;
-	int preview_window = 0;
+	int show_preview_window = 0;
+	int list_devices = 0;
+	int device_number = 1;
+	char filename[100];
 
-	// Parse command line arguments
-	if (argc > 1) strcpy(filename, argv[1]);
-	else strcpy(filename, "image.bmp");
-	if (argc > 2) snapshot_delay = atoi(argv[2]);
-	if (argc > 3 && strcmp(argv[3], "preview") == 0)
-		preview_window = 1;
-		
+	// Default output filename
+	strcpy(filename, "image.bmp");
+	
 	// Information message
-	fprintf(stderr, "CommandCam.exe - http://batchloaf.wordpress.com\n");
-	fprintf(stderr, "Written by Ted Burke - this version 17-11-2011\n\n");
+	fprintf(stderr, "\nCommandCam.exe - http://batchloaf.wordpress.com\n");
+	fprintf(stderr, "Written by Ted Burke - this version 20-11-2011\n\n");
+	
+	// Parse command line arguments. Available options:
+	//
+	//		/delay DELAY_IN_MILLISECONDS
+	//		/filename OUTPUT_FILENAME
+	//		/devnum DEVICE_NUMBER
+	//		/preview
+	//		/devlist
+	//
+	int n = 1;
+	while (n < argc)
+	{
+		// Process next command line argument
+		if (strcmp(argv[n], "/preview") == 0)
+		{
+			// Enable preview window
+			show_preview_window = 1;
+		}
+		else if (strcmp(argv[n], "/devlist") == 0)
+		{
+			// Set flag to list devices rather than capture image
+			list_devices = 1;
+		}
+		else if (strcmp(argv[n], "/filename") == 0)
+		{
+			// Set output filename to specified string
+			n++;
+			if (n < argc) strcpy(filename, argv[n]);
+			else exit_message("Error: no filename specified", 1);
+		}
+		else if (strcmp(argv[n], "/delay") == 0)
+		{
+			// Set snapshot delay to specified value
+			n++;
+			if (n < argc) snapshot_delay = atoi(argv[n]);
+			else exit_message("Error: invalid delay specified", 1);
+			
+			if (snapshot_delay <= 0)
+				exit_message("Error: invalid delay specified", 1);
+		}
+		else if (strcmp(argv[n], "/devnum") == 0)
+		{
+			// Set device number to specified value
+			n++;
+			if (n < argc) device_number = atoi(argv[n]);
+			else exit_message("Error: invalid device number", 1);
+			
+			if (device_number <= 0)
+				exit_message("Error: invalid device number", 1);
+		}
+		else
+		{
+			// Unknown command line argument
+			fprintf(stderr, "Unrecognised option: %s\n", argv[n]);
+			exit_message("", 1);			
+		}
+		
+		// Increment command line argument counter
+		n++;
+	}
 	
 	// Intialise COM
 	hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
@@ -127,10 +185,58 @@ int main(int argc, char **argv)
 	if (hr != S_OK)
 		exit_message("No video devices found", 1);
 	
-	// Get moniker for next video input device
-	hr = pEnum->Next(1, &pMoniker, NULL);
-	if (hr != S_OK)
-		exit_message("Could not open video capture device", 1);
+	// If the user has included the "/list" command line
+	// argument, just list available devices, then exit.
+	if (list_devices != 0)
+	{
+		fprintf(stderr, "Available capture devices:\n");
+		n = 0;
+		while(1)
+		{
+			// Find next device
+			hr = pEnum->Next(1, &pMoniker, NULL);
+			if (hr == S_OK)
+			{
+				// Increment device counter
+				n++;
+				
+				// Get device name
+				hr = pMoniker->BindToStorage(0, 0, IID_PPV_ARGS(&pPropBag));
+				VARIANT var;
+				VariantInit(&var);
+				hr = pPropBag->Read(L"FriendlyName", &var, 0);
+				fprintf(stderr, "  %d. %ls\n", n, var.bstrVal);
+				VariantClear(&var);
+			}
+			else
+			{
+				// Finished listing device, so exit program
+				if (n == 0) exit_message("No devices found", 0);
+				else exit_message("", 0);
+			}
+		}
+	}
+	
+	// Get moniker for specified video input device,
+	// or for the first device if no device number
+	// was specified.
+	n = 0;
+	while(n < device_number)
+	{
+		// Access next device
+		hr = pEnum->Next(1, &pMoniker, NULL);
+		if (hr == S_OK)
+		{
+			n++; // increment device count
+		}
+		else
+		{
+			fprintf(stderr,
+				"Video capture device %d not found\n",
+				device_number);		
+			exit_message("", 1);		
+		}
+	}
 	
 	// Get video input device name
 	hr = pMoniker->BindToStorage(0, 0, IID_PPV_ARGS(&pPropBag));
@@ -201,7 +307,7 @@ int main(int argc, char **argv)
 		exit_message("Could not render capture video stream", 1);
 		
 	// Connect up the filter graph's preview stream
-	if (preview_window > 0)
+	if (show_preview_window > 0)
 	{
 		hr = pBuilder->RenderStream(
 				&PIN_CATEGORY_PREVIEW, &MEDIATYPE_Video,
