@@ -1,14 +1,28 @@
 //
-// CommandCam.cpp - A command line image grabber
-// Written by Ted Burke - last modified 20-11-2011
+// CommandCam - A command line image grabber
+// Copyright (C) 2012 Ted Burke
 //
-// Copyright Ted Burke, 2011, All rights reserved.
-//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+// 
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+// 
+// You should have received a copy of the GNU General Public License
+// along with this program (see the file "COPYING").
+// If not, see <http://www.gnu.org/licenses/>.
+// 
 // Website: http://batchloaf.wordpress.com
 //
 // To compile using the MSVC++ compiler:
 //
 //		cl CommandCam.cpp ole32.lib strmiids.lib oleaut32.lib
+//
+// Last modified 21-4-2012
 //
 
 // DirectShow header file
@@ -93,9 +107,17 @@ int main(int argc, char **argv)
 	strcpy(filename, "image.bmp");
 	
 	// Information message
-	fprintf(stderr, "\nCommandCam.exe - http://batchloaf.wordpress.com\n");
-	fprintf(stderr, "Written by Ted Burke - this version 20-11-2011\n");
-	fprintf(stderr, "Copyright Ted Burke, 2011, All rights reserved.\n\n");
+	fprintf(stderr, "\n");
+	fprintf(stderr, "CommandCam  Copyright (C) 2012  Ted Burke\n");
+    fprintf(stderr, "This program comes with ABSOLUTELY NO WARRANTY;\n");
+    fprintf(stderr, "This is free software, and you are welcome to\n");
+    fprintf(stderr, "redistribute it under certain conditions;\n");
+	fprintf(stderr, "See the GNU General Public License v3,\n");
+	fprintf(stderr, "<http://www.gnu.org/licenses/gpl.txt>\n");
+	fprintf(stderr, "\n");
+	fprintf(stderr, "http://batchloaf.wordpress.com\n");
+	fprintf(stderr, "This version 21-4-2012\n");
+	fprintf(stderr, "\n");
 	
 	// Parse command line arguments. Available options:
 	//
@@ -123,8 +145,7 @@ int main(int argc, char **argv)
 		else if (strcmp(argv[n], "/filename") == 0)
 		{
 			// Set output filename to specified string
-			n++;
-			if (n < argc) //strcpy(filename, argv[n]);
+			if (++n < argc) //strcpy(filename, argv[n]);
 			{
 				// Copy provided string into char buffer
 				strcpy(char_buffer, argv[n]);
@@ -145,8 +166,7 @@ int main(int argc, char **argv)
 		else if (strcmp(argv[n], "/delay") == 0)
 		{
 			// Set snapshot delay to specified value
-			n++;
-			if (n < argc) snapshot_delay = atoi(argv[n]);
+			if (++n < argc) snapshot_delay = atoi(argv[n]);
 			else exit_message("Error: invalid delay specified", 1);
 			
 			if (snapshot_delay <= 0)
@@ -155,8 +175,7 @@ int main(int argc, char **argv)
 		else if (strcmp(argv[n], "/devnum") == 0)
 		{
 			// Set device number to specified value
-			n++;
-			if (n < argc) device_number = atoi(argv[n]);
+			if (++n < argc) device_number = atoi(argv[n]);
 			else exit_message("Error: invalid device number", 1);
 			
 			if (device_number <= 0)
@@ -165,8 +184,7 @@ int main(int argc, char **argv)
 		else if (strcmp(argv[n], "/devname") == 0)
 		{
 			// Set device number to specified value
-			n++;
-			if (n < argc)
+			if (++n < argc)
 			{
 				// Copy device name into char buffer
 				strcpy(char_buffer, argv[n]);
