@@ -2,3 +2,4 @@
 *.user
 Debug/*
 CommandCam/Debug/*
+*.pdb

@@ -179,7 +179,6 @@ int main(int argc, char **argv)
 						strcpy(ts + dateLen, temp);
 						int i = 4;
 					}
-
 				}
 			}
 			else exit_message("Error: no filename specified", 1);
