@@ -27,6 +27,9 @@
 
 // DirectShow header file
 #include <dshow.h>
+#include <iostream>
+#include <ctime>
+#include <string.h>
 
 // This is a workaround for the missing header
 // file qedit.h which seems to be absent from the
@@ -98,7 +101,7 @@ int main(int argc, char **argv)
 	int device_number = 1;
 	char device_name[100];
 	char filename[100];
-	
+
 	// Other variables
 	char char_buffer[100];
 
@@ -159,6 +162,24 @@ int main(int argc, char **argv)
 				else
 				{
 					strcpy(filename, char_buffer);
+					
+					// idegani: add a timestamp in the filename if it contains wildcard {TS}
+					char *ts = strstr(filename, "{TS}");
+					if(ts != 0) {
+						char temp[100];
+						time_t rawtime;
+						struct tm * timeinfo;
+						size_t  dateLen;
+
+						time (&rawtime);
+						timeinfo = localtime(&rawtime);
+						strcpy(temp, ts + strlen("{TS}"));
+						// TODO: might be nice to have another cmd line arg where format can be specified
+						dateLen = strftime(ts, 80,"%Y-%m-%d_%H-%M-%S", timeinfo);
+						strcpy(ts + dateLen, temp);
+						int i = 4;
+					}
+
 				}
 			}
 			else exit_message("Error: no filename specified", 1);
